@@ -20,8 +20,7 @@ if data == secret then
   local datalen = data:len()
 
   -- CRLF, CMD, ATYP
-  local field_CMD = data:byte(3)
-  local field_ATYP = data:byte(4)
+  local field_CMD, field_ATYP = data:byte(3, 4)
   if field_CMD ~= 1 then
     -- CMD other than CONNECT is not implemented.
     ngx.exit(ngx.ERROR)
