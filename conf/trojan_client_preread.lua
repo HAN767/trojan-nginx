@@ -9,13 +9,12 @@ if err then
   ngx.exit(ngx.ERROR)
 end
 
-local field_VER = data:byte(1)
+local field_VER, field_NMETHODS = data:byte(1, 2)
 if field_VER ~= 5 then
   -- SOCKS5 only
   ngx.exit(ngx.ERROR)
 end
 
-local field_NMETHODS = data:byte(2)
 data, err = sock:receive(field_NMETHODS)
 if err then
   ngx.exit(ngx.ERROR)
@@ -31,36 +30,14 @@ if err then
   ngx.exit(ngx.ERROR)
 end
 
-local field_CMD = data:byte(2)
+local field_VER, field_CMD, field_RSV, field_ATYP = data:byte(1, 4)
 if field_CMD ~= 1 then
-  sock:send("\5\7\0\1\0\0\0\0\0\0")
+  -- CMD other than CONNECT is not implemented.
   ngx.exit(ngx.ERROR)
 end
 
-local field_ATYP = data:byte(4)
-local field_DSTADDRPORT
-if field_ATYP == 1 then
-  field_DSTADDRPORT, err = sock:receive(6)
-  if err then
-    ngx.exit(ngx.ERROR)
-  end
-elseif field_ATYP == 3 then
-  local len, err = sock:receive(1)
-  if err then
-    ngx.exit(ngx.ERROR)
-  end
-  data, err = sock:receive(len:byte(1) + 2)
-  field_DSTADDRPORT = len .. data
-  if err then
-    ngx.exit(ngx.ERROR)
-  end
-elseif field_ATYP == 4 then
-  field_DSTADDRPORT, err = sock:receive(18)
-  if err then
-    ngx.exit(ngx.ERROR)
-  end
-else
-  sock:send("\5\8\0\1\0\0\0\0\0\0")
+local field_DSTADDRPORT, err = sock:receive('*y')
+if err then
   ngx.exit(ngx.ERROR)
 end
 

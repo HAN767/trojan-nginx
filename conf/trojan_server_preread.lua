@@ -10,78 +10,70 @@ if err then
 end
 if data == secret then
   -- Does normal error reporting once the shared secret is proven.
-  -- Protection against replay probing is provided by TLS. (?)
+  -- Protection against replay probing is provided by TLS.
 
-  -- CRLF
-  data, err = sock:receive(2)
+  data, err = sock:receive('*y')
   if err then
     ngx.exit(ngx.ERROR)
   end
 
-  -- CMD, ATYP
-  data, err = sock:receive(2)
-  if err then
-    ngx.exit(ngx.ERROR)
-  end
+  local datalen = data:len()
 
-  local command = data:byte(1)
-  if command ~= 1 then
+  -- CRLF, CMD, ATYP
+  local field_CMD = data:byte(3)
+  local field_ATYP = data:byte(4)
+  if field_CMD ~= 1 then
     -- CMD other than CONNECT is not implemented.
     ngx.exit(ngx.ERROR)
   end
 
-  -- DST.ADDR
-  local address_type = data:byte(2)
+  -- DST.ADDR, DST.PORT, CRLF
+  local off = 4
+  local portlen = 4
   local address
-  if address_type == 1 then
+  if field_ATYP == 1 then
     -- IPv4
-    data, err = sock:receive(4)
-    if err then
+    local len = 4
+    if datalen < off + len + portlen then
       ngx.exit(ngx.ERROR)
     end
-    address = string.format("%d.%d.%d.%d", data:byte(1), data:byte(2), data:byte(3), data:byte(4))
-  elseif address_type == 3 then
+    address = string.format("%d.%d.%d.%d", data:byte(off + 1, off + len))
+    off = off + len
+  elseif field_ATYP == 3 then
     -- Domain name
-    data, err = sock:receive(1)
-    if err then
+    off = off + 1
+    local len = data:byte(off)
+    if not len or len == 0 or datalen < off + len + portlen then
       ngx.exit(ngx.ERROR)
     end
-    local len = data:byte(1)
-    data, err = sock:receive(len)
-    address = data
-  elseif address_type == 4 then
+    address = data:sub(off + 1, off + len)
+    off = off + len
+  elseif field_ATYP == 4 then
     -- IPv6
-    data, err = sock:receive(16)
-    if err then
+    local len = 16
+    if datalen < off + len + portlen then
       ngx.exit(ngx.ERROR)
     end
     address = string.format("[%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x]",
-                            data:byte(1), data:byte(2), data:byte(3), data:byte(4),
-                            data:byte(5), data:byte(6), data:byte(7), data:byte(8),
-                            data:byte(9), data:byte(10), data:byte(11), data:byte(12),
-                            data:byte(13), data:byte(14), data:byte(15), data:byte(16))
-  end
-
-  -- DST.PORT
-  data, err = sock:receive(2)
-  if err then
+                            data:byte(off + 1, off + len))
+    off = off + len
+  else
     ngx.exit(ngx.ERROR)
   end
-  local port = data:byte(1) * 256 + data:byte(2)
 
-  -- CRLF
-  data, err = sock:receive(2)
-  if err then
-    ngx.exit(ngx.ERROR)
-  end
+  local hi, lo = data:byte(off + 1, off + 2)
+  local port = hi * 256 + lo
+  off = off + portlen
 
   ngx.ctx.backend_addr = address
   ngx.ctx.backend_port = port
-elseif data then
-  ngx.req.add_preread_data(data)
-end
-
-data, err = sock:receive('*y')
-if data then
-  ngx.req.add_preread_data(data)
+  ngx.req.add_preread_data(data:sub(off + 1))
+else
+  if data then
+    ngx.req.add_preread_data(data)
+  end
+  data = sock:receive('*y')
+  if data then
+    ngx.req.add_preread_data(data)
+  end
 end
