@@ -112,6 +112,13 @@ make -j4
 make install
 strip --remove-section=.comment --remove-section=.note "$PREFIX/server/sbin/nginx"
 
+cd "$PREFIX/client"
+mkdir -p conf
+cd conf
+for i in "$PREFIX/conf/"*; do
+  ln -s "$i"
+done
+
 cd "$PREFIX/server"
 git clone https://github.com/openresty/lua-resty-core.git
 mkdir -p conf
@@ -119,11 +126,17 @@ cd conf
 for i in "$PREFIX/conf"/*; do
   ln -s "$i"
 done
-yes '' | openssl req -x509 -newkey rsa:2048 -keyout cert.key -out cert.pem -days 100 -nodes
 
-cd "$PREFIX/client"
-mkdir -p conf
-cd conf
-for i in "$PREFIX/conf/"*; do
-  ln -s "$i"
-done
+openssl dhparam -out dhparam.pem 2048
+
+cd "$PREFIX/csr"
+if which cfssl >/dev/null 2>&1; then
+  cfssl genkey -initca ca.json | cfssljson -bare ca
+  cfssl gencert -ca ca.pem -ca-key ca-key.pem -config config.json -profile server -hostname '*.cert.org.cn,cert.org.cn' server.json | cfssljson -bare server
+  mv ca.pem "$PREFIX/client/conf"
+  mv server.pem server-key.pem "$PREFIX/server/conf"
+  rm -f ca.csr ca-key.pem server.csr
+else
+  echo cfssl not found
+  exit 1
+fi

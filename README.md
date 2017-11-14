@@ -5,6 +5,7 @@ Build prerequisites:
 * curl, coreutils, git, make, openssl, tar, patch
 * cmake, clang-5.0, perl, golang (BoringSSL)
 * libluajit-5.1-dev, gcc, binutils (Nginx)
+* golang-cfssl (for making certificates)
 
 How to:
 
