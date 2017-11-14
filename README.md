@@ -1,11 +1,16 @@
 # trojan-nginx
 
-Build prerequisites should have at least libluajit-5.1-dev libssl-dev.
+Build prerequisites:
+
+* curl, coreutils, git, make, openssl, tar, patch
+* cmake, clang-5.0, perl, golang (BoringSSL)
+* libluajit-5.1-dev, gcc, binutils (Nginx)
 
 How to:
 
 * `sh build-nginx.sh`
 * `sh test.sh`
+* Optionally, `sh test-chromium.sh` with Wireshark (requires chromium).
 
 What you are seeing:
 
