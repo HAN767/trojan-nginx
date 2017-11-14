@@ -15,7 +15,8 @@ CLANGXX=clang++-5.0
 export LUAJIT_INC="/usr/include/luajit-2.1"
 export LUAJIT_LIB="/usr/lib/x86_64-linux-gnu"
 
-NGINX=nginx-1.13.6
+NGINX_VERSION=1.13.6
+NGINX=nginx-$NGINX_VERSION
 
 NGINX_CFLAGS="-O2 -fstack-protector-strong -Wformat -Werror=format-security -fPIE -Wdate-time -D_FORTIFY_SOURCE=2"
 NGINX_LDFLAGS="-Wl,-z,relro -Wl,-z,now -fPIE"
@@ -93,9 +94,10 @@ git clone -b bsdread https://github.com/klzgrad/stream-lua-nginx-module.git
 
 curl -O https://nginx.org/download/$NGINX.tar.gz
 tar xf $NGINX.tar.gz
-cd "$NGINX"
-patch -p1 <"$PREFIX/patches/nginx-1.13.6-001.patch"
-patch -p1 <"$PREFIX/patches/nginx-1.13.6-002.patch"
+cd "$BUILDROOT/$NGINX"
+for i in "$PREFIX/patches-$NGINX_VERSION"/*; do
+  patch -p1 <"$i"
+done
 
 ./configure --prefix="$PREFIX/client" --with-cc-opt="$NGINX_CFLAGS" --with-ld-opt="$NGINX_LDFLAGS" $NGINX_COMMON_FLAGS $NGINX_CLIENT_FLAGS
 # Workaround for Nginx looking for OpenSSL configure script
@@ -115,7 +117,7 @@ strip --remove-section=.comment --remove-section=.note "$PREFIX/server/sbin/ngin
 cd "$PREFIX/client"
 mkdir -p conf
 cd conf
-for i in "$PREFIX/conf/"*; do
+for i in "$PREFIX/conf"/*; do
   ln -s "$i"
 done
 
@@ -127,7 +129,8 @@ for i in "$PREFIX/conf"/*; do
   ln -s "$i"
 done
 
-openssl dhparam -out dhparam.pem 2048
+# Too slow for testing.
+# openssl dhparam -out dhparam.pem 2048
 
 cd "$PREFIX/csr"
 if which cfssl >/dev/null 2>&1; then
